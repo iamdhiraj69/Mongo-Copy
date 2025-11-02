@@ -1,0 +1,35 @@
+{
+  "name": "mongocopy",
+  "version": "1.0.0",
+  "description": "A developer-friendly MongoDB data copier that lets users easily clone, back up, or migrate collections or entire databases safely, quickly, and locally.",
+  "keywords": [
+    "Mongo-Copy",
+    "MongoDB"
+  ],
+  "homepage": "https://github.com/iamdhiraj69/Mongo-Copy#readme",
+  "bugs": {
+    "url": "https://github.com/iamdhiraj69/Mongo-Copy/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/iamdhiraj69/Mongo-Copy.git"
+  },
+  "license": "MIT",
+  "author": "Dhiraj",
+  "type": "module",
+  "main": "src/index.js",
+  "bin": {
+    "mongocopy": "./src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "chalk": "^5.6.2",
+    "commander": "^14.0.2",
+    "dotenv": "^17.2.3",
+    "inquirer": "^12.10.0",
+    "mongodb": "^6.20.0",
+    "ora": "^9.0.0"
+  }
+}
