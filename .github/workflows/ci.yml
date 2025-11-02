@@ -49,15 +49,25 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: New-Item -ItemType Directory -Force -Path "C:\data\db"
 
-      - name: Check MongoDB executable (Windows)
+      - name: Find MongoDB executable (Windows)
         if: matrix.os == 'windows-latest'
-        run: dir "C:\ProgramData\chocolatey\lib\mongodb.portable\tools\mongodb-win32-x64-windows\bin"
+        run: |
+          $mongoDir = Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\mongodb.portable\tools" -Directory | Select-Object -First 1
+          Write-Host "MongoDB directory found: $mongoDir"
+          $mongodPath = Join-Path -Path $mongoDir.FullName -ChildPath "bin\mongod.exe"
+          Write-Host "MongoDB executable path: $mongodPath"
+          if (Test-Path $mongodPath) {
+            Write-Host "MongoDB executable exists at: $mongodPath"
+            echo "MONGODB_PATH=$mongodPath" >> $env:GITHUB_ENV
+          } else {
+            Write-Error "MongoDB executable not found at expected path: $mongodPath"
+            exit 1
+          }
 
       - name: Start MongoDB (Windows)
         if: matrix.os == 'windows-latest'
         run: |
-          $mongodPath = "C:\ProgramData\chocolatey\lib\mongodb.portable\tools\mongodb-win32-x64-windows\bin\mongod.exe"
-          Start-Process -FilePath $mongodPath -ArgumentList "--dbpath", "C:\data\db" -WindowStyle Hidden
+          Start-Process -FilePath $env:MONGODB_PATH -ArgumentList "--dbpath", "C:\data\db" -WindowStyle Hidden
           $retries = 30
           $success = $false
           do {
