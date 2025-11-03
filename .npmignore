@@ -49,6 +49,9 @@ Thumbs.db
 
 # Documentation (optional - keep if needed)
 docs/
+PUBLISHING.md
+PRODUCTION_READY.md
+PRE_PUBLISH_CHECKLIST.md
 
 # Misc
 TODO.md
