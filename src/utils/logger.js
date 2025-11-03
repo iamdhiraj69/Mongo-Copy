@@ -6,7 +6,7 @@ import chalk from "chalk";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DEFAULT_LOG_DIR = path.resolve(__dirname, "..", "..", "logs");
-const DEFAULT_LOG_PATH = path.join(DEFAULT_LOG_DIR, "mongocopy.log");
+const DEFAULT_LOG_PATH = path.join(DEFAULT_LOG_DIR, "mongo-copy.log");
 
 const DEBUG = (process.env.DEBUG || "false").toLowerCase() === "true";
 const LOG_TO_FILE =

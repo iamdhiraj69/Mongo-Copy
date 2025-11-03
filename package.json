@@ -1,11 +1,11 @@
 {
-  "name": "mongocopy",
+  "name": "mongo-copy",
   "version": "1.1.0",
   "description": "A lightweight, production-ready CLI and Node.js utility for MongoDB data migration, backup, and cloning. Features include progress bars, incremental backups, index copying, schema validation, JSON export/import, and optimized batch processing for large datasets.",
   "type": "module",
   "main": "src/api.js",
   "bin": {
-    "mongocopy": "./src/cli/index.js"
+    "mongo-copy": "./src/cli/index.js"
   },
   "files": [
     "src/**/*",
