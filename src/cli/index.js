@@ -8,7 +8,7 @@ import env from "../utils/config/env.js";
 
 const program = new Command();
 program
-  .name("mongocopy")
+  .name("mongodbcopy")
   .option("-a, --all", "Copy all collections")
   .option("-c, --collections <list>", "Comma-separated collections")
   .option("--dry-run", "Simulate without writing")

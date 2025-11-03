@@ -1,11 +1,11 @@
-# Testing Guide for mongocopy v1.1.0
+# Testing Guide for mongodbcopy v1.1.0
 
 This guide helps you test all the new features introduced in version 1.1.0.
 
 ## Prerequisites
 
 1. Install MongoDB locally or have access to test MongoDB instances
-2. Install mongocopy: `npm install -g mongocopy` or run locally
+2. Install mongodbcopy: `npm install -g mongodbcopy` or run locally
 3. Set up `.env` file with test database credentials
 
 ## Test Environment Setup
@@ -16,7 +16,7 @@ This guide helps you test all the new features introduced in version 1.1.0.
 # Using MongoDB Shell
 mongosh
 
-use test_mongocopy
+use test_mongodbcopy
 
 # Create test collections with sample data
 db.users.insertMany([
@@ -43,7 +43,7 @@ exit
 ```env
 SOURCE_DB_URI=mongodb://localhost:27017
 TARGET_DB_URI=mongodb://localhost:27017
-DB_NAME=test_mongocopy
+DB_NAME=test_mongodbcopy
 BATCH_SIZE=100
 ```
 
@@ -57,10 +57,10 @@ BATCH_SIZE=100
 
 ```bash
 # Test with progress bars (default)
-mongocopy --collections users --dry-run
+mongodbcopy --collections users --dry-run
 
 # Test without progress bars
-mongocopy --collections users --dry-run --no-progress
+mongodbcopy --collections users --dry-run --no-progress
 ```
 
 **Expected Result**:
@@ -75,11 +75,11 @@ mongocopy --collections users --dry-run --no-progress
 
 ```bash
 # Copy with indexes
-mongocopy --collections users,posts --copy-indexes
+mongodbcopy --collections users,posts --copy-indexes
 
 # Verify indexes were copied
 mongosh
-use test_mongocopy
+use test_mongodbcopy
 db.users.getIndexes()  # Should show email and name+email indexes
 db.posts.getIndexes()  # Should show text index on title
 exit
@@ -97,7 +97,7 @@ exit
 
 ```bash
 # Export collections with indexes
-mongocopy --all --export-json --copy-indexes --output-dir ./test-backup
+mongodbcopy --all --export-json --copy-indexes --output-dir ./test-backup
 
 # Check output
 ls test-backup/
@@ -124,7 +124,7 @@ cat test-backup/users_indexes.json
 
 ```bash
 # Copy only docs updated after Jan 15, 2024
-mongocopy --all --incremental \
+mongodbcopy --all --incremental \
   --timestamp-field updatedAt \
   --since 2024-01-15T00:00:00Z
 
@@ -149,11 +149,11 @@ mongocopy --all --incremental \
 
 ```bash
 # First, run a full copy to target
-mongocopy --all
+mongodbcopy --all
 
 # Update a document in source
 mongosh
-use test_mongocopy
+use test_mongodbcopy
 db.users.updateOne(
   { _id: 1 },
   { $set: { name: "Alice Updated", updatedAt: new Date() } }
@@ -161,13 +161,13 @@ db.users.updateOne(
 exit
 
 # Run incremental sync
-mongocopy --all --incremental \
+mongodbcopy --all --incremental \
   --timestamp-field updatedAt \
   --since 2024-02-01T00:00:00Z
 
 # Verify in target
 mongosh
-use test_mongocopy
+use test_mongodbcopy
 db.users.findOne({ _id: 1 })  # Should show "Alice Updated"
 exit
 ```
@@ -185,7 +185,7 @@ exit
 
 ```bash
 # This should work (valid schema)
-mongocopy --collections users --validate-schema
+mongodbcopy --collections users --validate-schema
 
 # To test failure, you'd need collections with incompatible schemas
 # (e.g., different validators on source vs target)
@@ -204,7 +204,7 @@ mongocopy --collections users --validate-schema
 
 ```bash
 # Full-featured backup
-mongocopy --all \
+mongodbcopy --all \
   --copy-indexes \
   --validate-schema \
   --batch-size 50 \
@@ -234,7 +234,7 @@ mongocopy --all \
 ```bash
 # Create large dataset
 mongosh
-use test_mongocopy
+use test_mongodbcopy
 for (let i = 0; i < 10000; i++) {
   db.large_collection.insertOne({
     _id: i,
@@ -245,11 +245,11 @@ for (let i = 0; i < 10000; i++) {
 exit
 
 # Test performance
-time mongocopy --collections large_collection \
+time mongodbcopy --collections large_collection \
   --batch-size 1000
 
 # Test incremental performance
-time mongocopy --collections large_collection \
+time mongodbcopy --collections large_collection \
   --incremental \
   --timestamp-field updatedAt \
   --since 2024-01-01T00:00:00Z \
@@ -270,7 +270,7 @@ time mongocopy --collections large_collection \
 
 ```bash
 # Dry run with all features
-mongocopy --all \
+mongodbcopy --all \
   --dry-run \
   --copy-indexes \
   --validate-schema \
@@ -394,25 +394,25 @@ Verify existing features still work:
 
 ```bash
 # Test 1: Basic copy (should still work)
-mongocopy --all
+mongodbcopy --all
 
 # Test 2: JSON export (should still work)
-mongocopy --all --export-json --output-dir ./backup
+mongodbcopy --all --export-json --output-dir ./backup
 
 # Test 3: JSON import (should still work)
-mongocopy --import-json --output-dir ./backup
+mongodbcopy --import-json --output-dir ./backup
 
 # Test 4: Batch size (should still work)
-mongocopy --all --batch-size 50
+mongodbcopy --all --batch-size 50
 
 # Test 5: Dry run (should still work)
-mongocopy --all --dry-run
+mongodbcopy --all --dry-run
 
 # Test 6: Specific collections (should still work)
-mongocopy --collections users,posts
+mongodbcopy --collections users,posts
 
 # Test 7: Skip confirmation (should still work)
-mongocopy --all --yes
+mongodbcopy --all --yes
 ```
 
 **Expected Result**:
@@ -429,7 +429,7 @@ After testing:
 ```bash
 # Remove test database
 mongosh
-use test_mongocopy
+use test_mongodbcopy
 db.dropDatabase()
 exit
 
@@ -486,7 +486,7 @@ If you find issues during testing:
 2. Capture error messages
 3. Document MongoDB version
 4. Note Node.js version
-5. Report at: https://github.com/iamdhiraj69/mongocopy/issues
+5. Report at: https://github.com/iamdhiraj69/mongodbcopy/issues
 
 ---
 

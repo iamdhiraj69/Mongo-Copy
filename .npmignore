@@ -21,7 +21,7 @@ pnpm-debug.log*
 # Logs
 logs/
 *.log
-mongocopy.log
+mongodbcopy.log
 
 # Backup files
 backup/

@@ -7,7 +7,7 @@ process.env.SOURCE_DB_URI = "mongodb://localhost:27017";
 process.env.TARGET_DB_URI = "mongodb://localhost:27017";
 process.env.DB_NAME = "test_db";
 
-describe("mongocopy", () => {
+describe("mongodbcopy", () => {
   describe("API exports", () => {
     it("should export copyCollections from api.js", async () => {
       const api = await import("../src/api.js");

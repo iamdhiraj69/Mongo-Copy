@@ -64,5 +64,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Parallel collection processing
 - Compression for JSON exports
 
-[1.1.0]: https://github.com/iamdhiraj69/mongocopy/releases/tag/v1.1.0
-[1.0.0]: https://github.com/iamdhiraj69/mongocopy/releases/tag/v1.0.0
+[1.1.0]: https://github.com/iamdhiraj69/mongodbcopy/releases/tag/v1.1.0
+[1.0.0]: https://github.com/iamdhiraj69/mongodbcopy/releases/tag/v1.0.0
