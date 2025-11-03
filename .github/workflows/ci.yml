@@ -43,46 +43,84 @@ jobs:
 
       - name: Install MongoDB (Windows)
         if: matrix.os == 'windows-latest'
-        run: choco install mongodb.portable -y
+        run: choco install mongodb.portable -y --no-progress
 
-      - name: Create MongoDB data directory (Windows)
+      - name: Prepare MongoDB and find mongod.exe (Windows)
         if: matrix.os == 'windows-latest'
-        run: New-Item -ItemType Directory -Force -Path "C:\data\db"
-
-      - name: Find MongoDB executable (Windows)
-        if: matrix.os == 'windows-latest'
+        shell: powershell
         run: |
-          $mongoDir = Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\mongodb.portable\tools" -Directory | Select-Object -First 1
-          Write-Host "MongoDB directory found: $mongoDir"
-          $mongodPath = Join-Path -Path $mongoDir.FullName -ChildPath "bin\mongod.exe"
-          Write-Host "MongoDB executable path: $mongodPath"
-          if (Test-Path $mongodPath) {
-            Write-Host "MongoDB executable exists at: $mongodPath"
-            echo "MONGODB_PATH=$mongodPath" >> $env:GITHUB_ENV
+          New-Item -ItemType Directory -Force -Path "C:\data\db" | Out-Null
+          try { RefreshEnv } catch {}
+
+          Write-Host "Listing chocolatey lib folders for debugging..."
+          Get-ChildItem -Path "C:\ProgramData\chocolatey\lib" -Force | ForEach-Object { Write-Host $_.FullName }
+
+          $toolsPath = "C:\ProgramData\chocolatey\lib\mongodb.portable\tools"
+          if (Test-Path $toolsPath) {
+            Write-Host "Found expected tools path: $toolsPath"
           } else {
-            Write-Error "MongoDB executable not found at expected path: $mongodPath"
+            Write-Host "Expected tools path not found: $toolsPath (continuing to recursive search)"
+          }
+
+          $candidates = @()
+          $searchRoots = @(
+            "C:\ProgramData\chocolatey\lib\mongodb.portable",
+            "C:\ProgramData\chocolatey\lib",
+            "C:\Program Files",
+            "C:\Program Files (x86)"
+          )
+
+          foreach ($root in $searchRoots) {
+            if (Test-Path $root) {
+              $found = Get-ChildItem -Path $root -Recurse -Filter "mongod.exe" -ErrorAction SilentlyContinue -Force
+              if ($found) { $candidates += $found }
+            }
+          }
+
+          if (-not $candidates -or $candidates.Count -eq 0) {
+            Write-Host "No mongod.exe found in searched locations. Full recursive search of C: (this may take a few seconds)..."
+            $candidates = Get-ChildItem -Path "C:\" -Recurse -Filter "mongod.exe" -ErrorAction SilentlyContinue -Force
+          }
+
+          if (-not $candidates -or $candidates.Count -eq 0) {
+            Write-Error "mongod.exe not found on runner. Chocolatey install may have failed or layout is unexpected. Here are the chocolatey lib contents for debugging:"
+            Get-ChildItem -Path "C:\ProgramData\chocolatey\lib" -Force | ForEach-Object { Write-Host $_.FullName }
             exit 1
           }
 
+          $mongod = $candidates | Where-Object { $_.FullName -match 'mongodb' } | Select-Object -First 1
+          if (-not $mongod) { $mongod = $candidates | Select-Object -First 1 }
+
+          Write-Host "Selected mongod.exe: $($mongod.FullName)"
+          echo "MONGODB_PATH=$($mongod.FullName)" >> $env:GITHUB_ENV
+
       - name: Start MongoDB (Windows)
         if: matrix.os == 'windows-latest'
+        shell: powershell
         run: |
-          Start-Process -FilePath $env:MONGODB_PATH -ArgumentList "--dbpath", "C:\data\db" -WindowStyle Hidden
+          Write-Host "Starting mongod from $env:MONGODB_PATH"
+          $mongodProc = Start-Process -FilePath $env:MONGODB_PATH -ArgumentList "--dbpath", "C:\data\db", "--bind_ip", "127.0.0.1" -NoNewWindow -PassThru
+
           $retries = 30
           $success = $false
           do {
             try {
-              Start-Sleep -s 1
+              Start-Sleep -Seconds 1
               $response = Invoke-WebRequest -Uri "http://localhost:27017" -Method Head -ErrorAction Stop
               $success = $true
             } catch {
               $retries--
+              Write-Host "Waiting for mongod... retries left: $retries"
             }
           } while (-not $success -and $retries -gt 0)
+
           if (-not $success) {
-            Write-Error "MongoDB failed to start"
+            Write-Error "MongoDB failed to start within the timeout window. Dumping process list for debugging:"
+            Get-Process | Where-Object { $_.ProcessName -like "*mongo*" } | Format-Table -AutoSize
             exit 1
           }
+
+          echo "MONGOD_PID=$($mongodProc.Id)" >> $env:GITHUB_ENV
 
       - name: Install dependencies
         run: npm ci
@@ -103,7 +141,18 @@ jobs:
 
       - name: Stop MongoDB (Windows)
         if: matrix.os == 'windows-latest'
+        shell: powershell
         run: |
-          Get-Process mongod -ErrorAction SilentlyContinue | Stop-Process -Force
-          Start-Sleep -s 2
+          if ($env:MONGOD_PID) {
+            try {
+              Write-Host "Stopping mongod PID $env:MONGOD_PID"
+              Stop-Process -Id $env:MONGOD_PID -Force -ErrorAction SilentlyContinue
+            } catch {
+              Write-Host "Failed to stop process by PID; attempting to stop any mongod processes."
+              Get-Process mongod -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+            }
+          } else {
+            Write-Host "No MONGOD_PID set; attempting to stop any mongod processes."
+            Get-Process mongod -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          }
         continue-on-error: true
