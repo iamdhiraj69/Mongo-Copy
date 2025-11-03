@@ -51,17 +51,14 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path "C:\data\db" | Out-Null
           try { RefreshEnv } catch {}
-
           Write-Host "Listing chocolatey lib folders for debugging..."
           Get-ChildItem -Path "C:\ProgramData\chocolatey\lib" -Force | ForEach-Object { Write-Host $_.FullName }
-
           $toolsPath = "C:\ProgramData\chocolatey\lib\mongodb.portable\tools"
           if (Test-Path $toolsPath) {
             Write-Host "Found expected tools path: $toolsPath"
           } else {
             Write-Host "Expected tools path not found: $toolsPath (continuing to recursive search)"
           }
-
           $candidates = @()
           $searchRoots = @(
             "C:\ProgramData\chocolatey\lib\mongodb.portable",
@@ -69,28 +66,23 @@ jobs:
             "C:\Program Files",
             "C:\Program Files (x86)"
           )
-
           foreach ($root in $searchRoots) {
             if (Test-Path $root) {
               $found = Get-ChildItem -Path $root -Recurse -Filter "mongod.exe" -ErrorAction SilentlyContinue -Force
               if ($found) { $candidates += $found }
             }
           }
-
           if (-not $candidates -or $candidates.Count -eq 0) {
             Write-Host "No mongod.exe found in searched locations. Full recursive search of C: (this may take a few seconds)..."
             $candidates = Get-ChildItem -Path "C:\" -Recurse -Filter "mongod.exe" -ErrorAction SilentlyContinue -Force
           }
-
           if (-not $candidates -or $candidates.Count -eq 0) {
             Write-Error "mongod.exe not found on runner. Chocolatey install may have failed or layout is unexpected. Here are the chocolatey lib contents for debugging:"
             Get-ChildItem -Path "C:\ProgramData\chocolatey\lib" -Force | ForEach-Object { Write-Host $_.FullName }
             exit 1
           }
-
           $mongod = $candidates | Where-Object { $_.FullName -match 'mongodb' } | Select-Object -First 1
           if (-not $mongod) { $mongod = $candidates | Select-Object -First 1 }
-
           Write-Host "Selected mongod.exe: $($mongod.FullName)"
           echo "MONGODB_PATH=$($mongod.FullName)" >> $env:GITHUB_ENV
 
@@ -100,26 +92,46 @@ jobs:
         run: |
           Write-Host "Starting mongod from $env:MONGODB_PATH"
           $mongodProc = Start-Process -FilePath $env:MONGODB_PATH -ArgumentList "--dbpath", "C:\data\db", "--bind_ip", "127.0.0.1" -NoNewWindow -PassThru
-
-          $retries = 30
+          $retries = 60
           $success = $false
           do {
+            Start-Sleep -Seconds 1
+            $proc = Get-Process -Id $mongodProc.Id -ErrorAction SilentlyContinue
+            if (-not $proc) {
+              Write-Host "mongod process is not running anymore."
+              Get-EventLog -LogName Application -Newest 50 | Select-Object -First 50 | Format-Table -AutoSize
+              break
+            }
             try {
-              Start-Sleep -Seconds 1
-              $response = Invoke-WebRequest -Uri "http://localhost:27017" -Method Head -ErrorAction Stop
-              $success = $true
-            } catch {
+              $tcp = New-Object System.Net.Sockets.TcpClient
+              $iar = $tcp.BeginConnect("127.0.0.1", 27017, $null, $null)
+              $wait = $iar.AsyncWaitHandle.WaitOne(500)
+              if ($wait -and $tcp.Connected) {
+                $tcp.EndConnect($iar)
+                $tcp.Close()
+                $success = $true
+              } else {
+                try { $tcp.Close() } catch {}
+              }
+            } catch {}
+            if (-not $success) {
               $retries--
-              Write-Host "Waiting for mongod... retries left: $retries"
+              Write-Host "Waiting for mongod (tcp probe)... retries left: $retries"
             }
           } while (-not $success -and $retries -gt 0)
-
           if (-not $success) {
-            Write-Error "MongoDB failed to start within the timeout window. Dumping process list for debugging:"
+            Write-Error "MongoDB failed to start within the timeout window (TCP probe). Dumping process list for debugging:"
             Get-Process | Where-Object { $_.ProcessName -like "*mongo*" } | Format-Table -AutoSize
+            $possibleLogs = @("C:\data\db\mongod.log", (Join-Path -Path (Split-Path $env:MONGODB_PATH -Parent -Parent) -ChildPath "log\mongod.log"))
+            foreach ($p in $possibleLogs) {
+              if (Test-Path $p) {
+                Write-Host "== Contents of $p =="
+                Get-Content $p -Tail 200 -ErrorAction SilentlyContinue
+              }
+            }
+            try { Get-EventLog -LogName Application -Newest 50 | Format-Table -AutoSize } catch {}
             exit 1
           }
-
           echo "MONGOD_PID=$($mongodProc.Id)" >> $env:GITHUB_ENV
 
       - name: Install dependencies
